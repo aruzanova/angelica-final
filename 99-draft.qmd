@@ -1,0 +1,79 @@
+---
+title: "99-draft"
+---
+
+A place to store previous chunks and discarded takeaways. 
+
+citations_clean |> 
+  left_join(nov_clean_entity, join_by(notice_of_violation_id == notice_of_violation_id)) |>
+  filter(is.na(regulated_entity_name)) |>
+  summary(investigation_approved_date)
+
+Listing out keywords based on similarities: 
+
+industry_keywords <- list(
+  "Oil & Gas Production" = c("OIL", "GAS", "DRILLING", "EXPLORATION", "WELL", "FIELD SERVICE", "OIL FIELD", "OIL WELL"),
+  "Petroleum Refining and Chemical Manufacturing" = c("REFIN", "REFINERY", "CHEMICAL", "MANUFACTURING", "PETROLEUM"),
+  "Construction and Development" = c("CONSTRUCTION", "BUILDING", "EXCAVATION", "SITE", "BRIDGE", "CONCRETE"),
+  "Waste Management and Disposal" = c("WASTE", "LANDFILL", "RECYCLING", "COMPOSTING", "HAZARDOUS", "DISPOSAL"),
+  "Water Management" = c("WATER", "WASTEWATER", "IRRIGATION", "TREATMENT", "PWS"),
+  "Energy Generation" = c("POWER", "ELECTRIC", "GENERATION", "SOLAR", "WIND"),
+  "Retail" = c("RETAIL", "SHOP", "STORE"),
+  "Domestic Services" = c("DOMESTIC", "RESIDENTIAL", "LAWN", "LANDSCAPING"),
+  "Fleet Services" = c("FLEET", "REFUELING", "AIRCRAFT"),
+  "Agriculture and Food Production" = c(
+    "AGRICULTURE", "FARM", "CROP", "FOOD", "MEAT", "DAIRY", "EGG", "SHRIMP", 
+    "SEAFOOD", "GRAIN", "POULTRY", "RESTAURANT"
+  ),
+  "Residential Parks and Campgrounds" = c("HOME PARK", "MOBILE HOME", "RV PARK", "TRAILER PARK", "CAMP"),
+  "Land Use" = c("LAND", "PROPERTY", "CLEARING", "TRACT", "DEVELOPMENT"),
+  "Public Services" = c("GOVERNMENT", "MUNICIPAL", "UTILITY", "PUBLIC", "HOSPITAL", "CORRECTION")
+)
+
+Normalizing for capitalization, misspellings, and abbreviations, and handing NA values: 
+
+categorize_business_type <- function(business_type) {
+  if (is.na(business_type)) {
+    return("Other") 
+  }
+  business_type <- toupper(business_type) 
+  business_type <- str_replace_all(business_type, "LANSCAPING", "LANDSCAPING") 
+  business_type <- str_replace_all(business_type, "RESTURANT", "RESTAURANT") 
+  for (industry in names(industry_keywords)) {
+    if (any(str_detect(business_type, industry_keywords[[industry]]))) {
+      return(industry)
+    }
+  }
+  return("Other")
+}
+
+And applying the categorizations: 
+
+industry_count <- nov_clean |>
+  mutate(categorized_industry = sapply(business_type, categorize_business_type)
+  ) |>
+  group_by(categorized_industry) |>
+  summarize(
+    total_violations = n()) |>
+  arrange(desc(total_violations))
+
+industry_count
+
+|>
+  filter(
+    investigation_approved_date >= as.Date("2010-09-16") &
+    violation_status_date >= as.Date("2010-09-16") &
+    compliance_due_date >= as.Date("2010-09-16")
+    
+A water utility in Midland received the most environmental violations in Texas since 2010, with 222 notices in total. Allegations toward the Warren Road Subdivision Water Supply include failures to report arsenic, nitrate, lead, and copper levels during the monitoring period, among other infractions.
+
+A chemical plant in Brazoria appears third with 667 notices. The Dow Texas Facility was cited for failing to prevent unauthorized emissions and flaring during an incident, neglecting to cap open-ended volatile organic compound (VOC) lines, inadequately documenting hazardous waste classification, and lacking proper back flow prevention at its waste water treatment plant, among other notices. 
+
+The condo complex in Leander (a specific apartment, in fact) faced notices for various infractions, including insufficient well capacity and, most recently, a failure to monitor water quality parameters. 
+
+Meanwhile, the VFW post in Menchaca was cited for exceeding the maximum contaminant level for coliform and neglecting to collect E. coli samples following positive results.
+
+Even a church made it on the list. The Bee Creek United Methodist Church, making it to top five violators in Travis County, was cited for failure to monitor and/or report distribution disinfectant residuals.
+
+865475, 880706, 877372, 900174, 912465, 921135, 921136, 922514, 949101, 956410, 956539, 968221, 977193, 989269, 989424, 1060448, 1152748, 1197338, 1211219, 1211175, 1315386, 1400429, 1422597, 1422604, 1422610, 1422608, 1484776, 1484961, 1478896, 1489870, 1496981, 1552758, 1592969, 1603436, 1640007, 1632024, 1672546, 1825374, 1880556, 1869122, 1966450
+

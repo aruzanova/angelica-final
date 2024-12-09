@@ -1,0 +1,433 @@
+---
+title: "Analysis"
+---
+
+## Goals of this notebook
+
+This project aims to analyze environmental quality violations from the Texas Commission on Environmental Quality available publicly on Texas Open Data Portal. The goal is to understand which businesses in Texas get cited for environmental quality concerns, as well as when and where these violations occur. 
+
+I will explore the following trends:
+
+- Which entities/businesses received the highest number of environmental violations in Texas? Who stands out in Travis County?
+- Which Texas county is home to the businesses responsible for the majority of environmental citations since 1998? 
+- Who received the most violations in Harris County - the top emitter? 
+- How have violation trends evolved since 2010, and what factors might explain their increase or decrease? 
+- Do the yearly trends differ in Greater Austin? If so, how? 
+- What are category A, B, and C violations, and what is their composition in the data? 
+- Which entity has the most category A violations, and what are they? 
+- Which industry receives the most environmental quality notices, and what specific issues are cited?
+
+## Set up & import
+
+To accomplish my tasks, I am loading in a couple of handy packages. 
+
+```{r}
+#| label: setup
+#| message: false
+
+library(tidyverse)
+library(janitor)
+library(stringr)
+library(dplyr)
+```
+
+This is also where I will import my cleaned data sets: nov_clean, which gives me information about the entity, and citation_clean, which gives me the other details (including the allegation descriptions).
+
+The two data sets are linked by investigation numbers, which uniquely identify entities regulated by the TCEQ. Cross-referencing these allows you to identify specific allegations made against entities using the look-up tables created in the cleaning notebook.
+
+Again, nov_clean is useful for the regulated entity name column. 
+
+```{r}
+nov_clean <- read_rds("data_processed/01-nov.rds")
+
+nov_clean
+```
+
+citations_clean, with a wider time frame from 1998, is useful for violation descriptions and resolutions. 
+
+```{r}
+citations_clean <- read_rds("data_processed/01-citations.rds")
+
+citations_clean
+```
+
+## Frequency by entity and county
+
+I will use the group, summarize, and arrange method to find basic information about the data, including which entities and counties have the most violation citations. My takeaways will reference both data sets and the [category memo](https://www.tceq.texas.gov/downloads/compliance/enforcement/eic/old-enforcement-initiation-criteria.pdf) sent to me by the TCEQ information officer. 
+
+First, I will group the entities, sum up their total violations from a separate column, and include the counties and investigation numbers for further research.
+
+```{r}
+entity_count <- nov_clean |>
+  group_by(regulated_entity_name, county) |>
+  summarize(
+    total_violations = sum(total_violation_count),
+    investigation_numbers = paste(unique(investigation_number), collapse = ", ")
+  ) |>
+  arrange(desc(total_violations))
+
+entity_count
+```
+
+**Data Takeaway**: The Port Arthur Refinery has received the most environmental violations in Texas since 2010, with 943 notices. As the third-largest fuel, petrochemical, and heavy sour crude oil processing platform in the U.S., it has faced allegations such as leaving universal waste containers open, delaying cleanup of hydrocarbon spills near a loading rack, and failing to post required safety signs at waste management areas. Most recently, it was cited for failing to prevent unauthorized atmospheric emissions in July 2024. 
+
+Another crude oil refinery in Galveston takes second place, with a total of 693 notices. The Galveston Bay Refinery was recently cited for failing to prevent unauthorized atmospheric emissions, conducting sampling for air contaminants at the sulfur recovery unit, and performing a repair attempt for a closed vent system.
+
+Corrective actions for both companies include adjusting operational procedures for the equipment and training personnel.
+
+Now, I want to see the top emitters in Travis County, where UT Austin is nested.
+
+```{r}
+travis_entity_count <- nov_clean |>
+  filter(county == "TRAVIS") |>
+  group_by(regulated_entity_name) |>
+  summarize(total_violations = sum(total_violation_count),
+            investigation_numbers = paste(unique(investigation_number), collapse = ", ")
+            ) |>
+  arrange(desc(total_violations))
+
+travis_entity_count
+```
+
+**Data Takeaway**: The top environmental violator in Travis County is the City of Pflugerville, totaling 54 notices. In January 2019, the city's water treatment plant violated cryptosporidium removal requirements, falling short of minimum treatment standards. Cryptosporidium is a microscopic parasite commonly found in water sources contaminated with fecal matter. Its removal requirements are mandated by the Environmental Protection Agency (EPA) to ensure safe drinking water for the public. 
+
+The second most cited entity in Travis County is a wastewater treatment plant in Walnut Creek, accounting for 28 notices. According to the TCEQ, the entity failed to properly operate and maintain its facility, being cited for severely rusted and eroded catwalks in the primary treatment area. Additionally, it failed to prevent the discharge of visible foam beyond trace amounts and persistent frothing in November 2022. 
+
+Do the violations vary by county? I will aggregate all individual county appearances to find out. 
+
+```{r}
+county_violations <- citations_clean |>
+  group_by(county) |>
+  summarize(
+    total_violations = n()) |>
+  arrange(desc(total_violations)) |>
+  head(10)
+
+county_violations
+```
+
+**Data Takeaway**: Harris County takes the lead in the number of entities cited for environmental violations since 1998, with over 28,179 citations released in total. Jefferson County takes a distant second with 8,633 notices.
+
+I can also visualize this data in a bar chart. I referred to Nathan Yau's [Data Points textbook](https://ebookcentral.proquest.com/lib/utxa/reader.action?docID=1158630) to find the graph type that would be the best fit to the display this information. I also used the ggplot [function reference](https://ggplot2.tidyverse.org/reference/#themes) to make it aesthetically pleasing. 
+
+```{r}
+ggplot(county_violations,
+       aes(y = reorder(county, total_violations), x = total_violations)) +
+  geom_col() +
+  geom_text(aes(label = total_violations), hjust = 1.1, color = "white") +
+  labs(
+    title = "Who’s polluting Texas? Harris County takes the lead",
+    subtitle = str_wrap("Harris County has the highest number of entities cited for environmental violations since 1998, according to data from the Texas Commission on Environmental Quality, with over 28,179 citations handed out in total. Jefferson County is a distant second."),
+    caption = "By Angelica Ruzanova",
+    x = "Total violations",
+    y = "County"
+  ) +
+  theme_minimal()
+```
+
+To create a choropleth map on Datawrapper, I am going to download a csv file with all county names.
+
+```{r}
+county_violations_all <- citations_clean |>
+  group_by(county) |>
+  summarize(total_violations = n()) |>
+  arrange(desc(total_violations))
+
+county_violations_all |> write_csv("data_processed/01-county-violations-all.csv")
+```
+
+**The finished map can be found here: https://datawrapper.dwcdn.net/GLOGc/1/**
+
+## Harris County - a closer look 
+
+Considering the enormous gap that Harris County has with other counties, it would be worth taking a look at its top emitters separately. Using the same logic, I will group, summarize, and arrange the filtered county. 
+
+```{r}
+harris_top_emitters <- nov_clean |>
+  filter(county == "HARRIS") |>
+  group_by(regulated_entity_name) |> 
+  summarize(total_violations = sum(total_violation_count),
+            investigation_numbers = paste(unique(investigation_number), collapse = ", ")
+            ) |>
+  arrange(desc(total_violations))
+
+harris_top_emitters
+```
+
+**Data Takeaway**: The Chevron Phillips chemical plant in Harris County, Texas - home to the state's highest number of environmental violations - leads the number of environmental citations in the county. Its Cedar Bayou facility has received 545 notices, including violations for failing to detect a rail car leak and prevent unauthorized emissions. 
+
+An ExxonMobil refinery in Baytown comes second with 389 violation citations, example of which include exceeding the hydrogen sulfide and nitrogen oxide emissions within the daily cap and leaving open-ended lines.
+
+## Trends by year 
+
+Policy and technological breakthroughs impact the rate at which environmental violations may occur, so it would be interesting to look at the data on a yearly basis. This can be accomplished with the same GSA method and a new column that extracts the year.  
+
+```{r}
+citations_clean_year <- citations_clean |> 
+  mutate(year = year(investigation_approved_date)) 
+```
+
+Now onto grouping by year to see the trends. 
+
+```{r}
+year_trends <- citations_clean_year |> 
+  group_by(year) |> 
+  summarize(
+    total_violations = n()) |> 
+  arrange(desc(total_violations))
+
+year_trends
+```
+
+**Data Takeaway**: Within the last 27 years, 2019 comes on top with the number of environmental violation notices handed out to entities in Texas, with a total of 20,803 citations that year alone. The year 2023 comes as a close second, with 19,343 citations.
+
+## Trends in Greater Austin
+
+A line chart would help visualize these trends, filtered to only show counties in the Greater Austin area over the last 15 years.
+
+The process starts with filtering and creating a new object. 
+
+```{r}
+county_trends <- citations_clean_year |>
+  filter(
+    (county == "BASTROP" | county == "TRAVIS" | county == "CALDWELL" | county == "COMAL" | county == "GUADALUPE" | county == "HAYS" | county == "BEXAR") &
+    year > 2010 & year < 2024
+    ) |>
+  group_by(year, county) |>
+  summarize(total_violations = n())
+
+county_trends
+```
+
+And then plotting it. 
+
+```{r}
+ggplot(county_trends, 
+       aes(x = year, y = total_violations, color = county)) +
+  geom_point() +
+  geom_line(size = 0.5, aes(color = county)) +
+  scale_x_continuous(breaks = 2010:2023) +
+  labs(
+    title = str_wrap("Keep Austin Green: Environmental violations peak in 2019"),
+    subtitle = str_wrap("Environmental violations in Greater Austin counties peaked in 2019 with 770 notices issued to businesses and entities, the highest total recorded since 2010 and consistent with statewide trends, according to Texas Commission on Environmental Quality data. Notices declined in the following years, potentially due to the COVID-19 pandemic, before rising sharply again in 2023 to 595."),
+    caption = "By Angelica Ruzanova",
+    x = "Year",
+    y = "Total violations",
+    color = "County"
+  ) +
+  theme_minimal()
+```
+
+To enhance the graph labels, I will do another grouping to see which years are actually on top. 
+
+```{r}
+year_trends <- citations_clean_year |> 
+  filter(
+    (county == "BASTROP" | county == "TRAVIS" | county == "CALDWELL" | county == "COMAL" | county == "GUADALUPE" | county == "HAYS" | county == "BEXAR") &
+    year > 2010 & year < 2024
+  ) |>
+  group_by(year) |> 
+  summarize(
+    total_violations = n()) |> 
+  arrange(desc(total_violations))
+
+year_trends
+```
+
+**Data Takeaway**: In Greater Austin counties, 2019 marked the highest number of environmental violations (770), making it a standout year. It was followed by a decline in violations, potentially due to the COVID-19 pandemic, with a returning spike in 2023 at 595 notices.
+
+To use the chart in my summary, I will save it as a jpg. 
+
+```{r}
+saved_county_line <- ggplot(county_trends, 
+       aes(x = year, y = total_violations, color = county)) +
+  geom_point() +
+  geom_line(size = 0.5, aes(color = county)) +
+  scale_x_continuous(breaks = 2010:2023) +
+  labs(
+    title = str_wrap("Keep Austin Green: Environmental violations peak in 2019"),
+    subtitle = str_wrap("Environmental violations in Greater Austin counties peaked in 2019 with 770 notices issued to businesses and entities, the highest total recorded since 2010 and consistent with statewide trends, according to Texas Commission on Environmental Quality data. Notices declined in the following years, potentially due to the COVID-19 pandemic, before rising sharply again in 2023 to 595."),
+    caption = "By Angelica Ruzanova",
+    x = "Year",
+    y = "Total violations",
+    color = "County"
+  ) +
+  theme_minimal()
+  
+ggsave("figures/county-line.png")
+```
+
+## Frequency by category
+
+Now, I am curious about the general category appearances. Their definitions are as follows: 
+
+**Category A violations** require automatic initiation of formal enforcement action when documented during an investigation.
+**Category B violations** trigger a NOV at the first occurrence, with formal enforcement if not corrected by deadline or if repeated within two consecutive investigations in a five-year period, unless an extension is approved.
+**Category C violations** may lead to formal enforcement if the same violation occurs three times within a five-year period, with decisions on enforcement made by staff management.
+
+```{r}
+category_count <- citations_clean |>
+  group_by(violation_category) |>
+  summarize(category_count = n()) |>
+  arrange(desc(category_count))
+
+category_count
+```
+
+**Data Takeaway**: Category B environmental violations - those that require formal enforcement action if the violation is not corrected by an established deadline - appear almost double the amount than Category C and A combined, with 154,745 in total since 1998 in Texas.
+
+So, which county has the most Category A violations in Texas? This can be found by grouping the counties within the filtered category.  
+
+```{r}
+category_a_county <- citations_clean |>
+  filter(violation_category == "A") |>
+  group_by(county) |>
+  summarize(category_a_count = n()) |>
+  arrange(desc(category_a_count))
+
+category_a_county
+```
+
+Most Category A violations per entity award goes to...
+
+```{r}
+category_a_entity <- nov_clean |>
+  filter(!is.na(cat_a_violation_citations)) |>
+  group_by(regulated_entity_name) |>
+  summarize(total_cat_a_citations = n_distinct(cat_a_violation_citations)) |>
+  arrange(desc(total_cat_a_citations))
+
+category_a_entity
+```
+
+**Data Takeaway**: Midland, a Texas county halfway between Fort Worth and El Paso, contains entities with the highest number of Category A environmental violations, totaling 131 since 1998. 
+
+Marathon Petroleum, Greenwood Ventures, and the Lakewood Water System are tied for the top spot for Category A violations by entity, each totaling 4 citations since 2010. Category A can be considered more severe due to a lower due diligence threshold. 
+
+As far as year-by-year trends of how the categories are changing, I can pivot wider to add new columns and arrange based on the category of interest. 
+
+```{r}
+citations_clean_year |> 
+  group_by(year, violation_category) |> 
+  summarize(violation_count = n()) |>
+  pivot_wider(
+    names_from = violation_category,      
+    values_from = violation_count 
+    ) |>
+  arrange(desc(A))
+```
+
+**Data Takeaway**: When it comes to Category A environmental violations - or those that require automatic action when documented during an investigation - 2011 takes the lead with 241 handed out to Texas agencies. Although the data is incomplete, 2024 comes as a close second with 203. 
+
+## In-depth by industry
+
+Given that we have two complimentary sets, we can also find out which industries come out on top by doing some grouping and summarizing. I excluded the unnamed columns. 
+
+```{r}
+industry_count <- nov_clean |>
+  group_by(business_type) |>
+  summarize(
+    total_violations = n()) |>
+  filter(!is.na(business_type)) |>
+  arrange(desc(total_violations))
+
+industry_count
+```
+
+It seems this data was manually typed by TCEQ employees, so some of the rows repeat due to naming differentiation. I used Claude LLM to help me sort some of the business types into broader industries. Then, I manually entered names that were misspelled, abbreviated, or unclassified by the model. 
+
+I will begin by applying categorizations based on identified keywords (with normalized capitalization). This needs to be manually checked based on individual judgmenet. 
+
+```{r}
+industry_count <- nov_clean |>
+  mutate(
+    business_type = toupper(business_type),
+    industry = case_when(
+      grepl("MOBILE HOME|RV PARK|TRAILER PARK|CAMP|MANUFACTURED HOUSING|MHP|R V PARK|RECREATIONAL VEHICLE PARK|HOME PARK|MOBILE HOME COMPLEX", business_type) ~ "Mobile Home Parks",
+      grepl("REFIN|CHEMICAL|MANUFACTURING|PETROLEUM|PROPYLENE PRODUCTION|PRODUCTION OF ACRYLIC AND METHACRYLIC MONOMERS|BULK LIQUID STORAGE TERMINAL|POLYETHYLENE|POLYPROPYLENE|ETHYLENE|PROPYLENE|BENZENE|BUTADIEN|FOR HIRE LIQUID STORAGE AND TRANSFER|SYNTHETIC RUBBER|EURECAT|ZEOLITE|ACRYLIC ACID|ESTERS|ACETIC ACID|MERCAPTANS|SULFIDES|COKE|RESIN|AMMONIA|BULK STORAGE|POLY CATALYST|SODIUM CHROMATEOIL|GAS|DRILLING|EXPLORATION|WELL|TANK BATTERY|CRUDE OIL|SODIUM CHROMATE|ACETATE|PROPLYLENE|TRENCH BURNER|CHEMCIALS|FUEL|GLYCINE|PEROXIDES", business_type) ~ "Petroleum & Chemical Manufacturing",
+      grepl("CONSTRUCTION|BUILDING|BRIDGE|EXCAVATION|SITE|CONCRETE|ROCK CRUSHING|SES|SAND|HOMEBUILDER|BASE|INDUSTRIAL|STEEL|GLASS|RUBBER|PULP|LUMBER|WOOD|IRON|METAL|ASPHALT|MINING|PREVENTERS", business_type) ~ "Construction & Industrial",
+      grepl("WASTE|RECYCLING|COMPOSTING|HAZARDOUS|DISPOSAL|SLUDGE TRANSPORTER|DISCHARGE", business_type) ~ "Waste",
+      grepl("WATER|WASTEWATER|IRRIGATION|TREATMENT|PWS", business_type) ~ "Water Management",
+      grepl("POWER|ELECTRIC|GENERATION|SOLAR|WIND", business_type) ~ "Energy Generation",
+      grepl("RETAIL|SHOP|DOMESTIC|RESIDENTIAL|RESIDENCE|GROCERY STORE|ATHLETIC|CONVENIENCE STORE|TECHNOLOGY", business_type) ~ "Retail & Domestic Services",
+      grepl("TRANSPORTATION|FLEET|TRUCKING|AIRCRAFT REFUELING|MARINA|MARINE", business_type) ~ "Transportation",
+      grepl("AGRICULTURE|FARM|CROP|LIVESTOCK|FOOD|COFFEE|MEAT|POULTRY|SEAFOOD|DAIRY|MILK|EGG|SHRIMP|GRAIN|ELEVATOR|RESTAURANT|WHOLESALE|AGRICULTURAL|COTTON|BEEF", business_type) ~ "Agriculture",
+      grepl("PRIVATE|LAND|PROPERTY|TRACT|CLEARING|DEVELOPMENT", business_type) ~ "Land Use",
+      grepl("GOVERNMENT|MUNICIPAL|UTILITY|PUBLIC|CHURCH|DAY CARE|STATE PARK|CORRECTIONAL INSTITUTION|RECREATIONAL PARK|SCHOOL|RESEARCH|PATROL|CLEBURNE|NAVAL|HOSPITAL|STATE OWNED", business_type) ~ "Government and Public Services",
+      TRUE ~ "Other")
+  ) |>
+  group_by(industry) |>
+  summarize(total_violations = n()) |>
+  arrange(desc(total_violations))
+
+industry_count
+```
+
+This is where I view the "Other" category and manually analyze the names, including them with the other industries where appropriate: 
+
+```{r}
+other_category_data <- nov_clean |>
+  mutate(
+    business_type = toupper(business_type),
+    industry = case_when(
+      grepl("MOBILE HOME|RV PARK|TRAILER PARK|CAMP|MANUFACTURED HOUSING|MHP|R V PARK|RECREATIONAL VEHICLE PARK|HOME PARK|MOBILE HOME COMPLEX", business_type) ~ "Mobile Home Parks",
+      grepl("REFIN|CHEMICAL|MANUFACTURING|PETROLEUM|PROPYLENE PRODUCTION|PRODUCTION OF ACRYLIC AND METHACRYLIC MONOMERS|BULK LIQUID STORAGE TERMINAL|POLYETHYLENE|POLYPROPYLENE|ETHYLENE|PROPYLENE|BENZENE|BUTADIEN|FOR HIRE LIQUID STORAGE AND TRANSFER|SYNTHETIC RUBBER|EURECAT|ZEOLITE|ACRYLIC ACID|ESTERS|ACETIC ACID|MERCAPTANS|SULFIDES|COKE|RESIN|AMMONIA|BULK STORAGE|POLY CATALYST|SODIUM CHROMATEOIL|GAS|DRILLING|EXPLORATION|WELL|TANK BATTERY|CRUDE OIL|SODIUM CHROMATE|ACETATE|PROPLYLENE|TRENCH BURNER|CHEMCIALS|FUEL|GLYCINE|PEROXIDES", business_type) ~ "Petroleum & Chemical Manufacturing",
+      grepl("CONSTRUCTION|BUILDING|BRIDGE|EXCAVATION|SITE|CONCRETE|ROCK CRUSHING|SES|SAND|HOMEBUILDER|BASE|INDUSTRIAL|STEEL|GLASS|RUBBER|PULP|LUMBER|WOOD|IRON|METAL|ASPHALT|MINING|PREVENTERS", business_type) ~ "Construction & Industrial",
+      grepl("WASTE|RECYCLING|COMPOSTING|HAZARDOUS|DISPOSAL|SLUDGE TRANSPORTER|DISCHARGE", business_type) ~ "Waste",
+      grepl("WATER|WASTEWATER|IRRIGATION|TREATMENT|PWS", business_type) ~ "Water Management",
+      grepl("POWER|ELECTRIC|GENERATION|SOLAR|WIND", business_type) ~ "Energy Generation",
+      grepl("RETAIL|SHOP|DOMESTIC|RESIDENTIAL|RESIDENCE|GROCERY STORE|ATHLETIC|CONVENIENCE STORE|TECHNOLOGY", business_type) ~ "Retail & Domestic Services",
+      grepl("TRANSPORTATION|FLEET|TRUCKING|AIRCRAFT REFUELING|MARINA|MARINE", business_type) ~ "Transportation",
+      grepl("AGRICULTURE|FARM|CROP|LIVESTOCK|FOOD|COFFEE|MEAT|POULTRY|SEAFOOD|DAIRY|MILK|EGG|SHRIMP|GRAIN|ELEVATOR|RESTAURANT|WHOLESALE|AGRICULTURAL|COTTON|BEEF", business_type) ~ "Agriculture",
+      grepl("PRIVATE|LAND|PROPERTY|TRACT|CLEARING|DEVELOPMENT", business_type) ~ "Land Use",
+      grepl("GOVERNMENT|MUNICIPAL|UTILITY|PUBLIC|CHURCH|DAY CARE|STATE PARK|CORRECTIONAL INSTITUTION|RECREATIONAL PARK|SCHOOL|RESEARCH|PATROL|CLEBURNE|NAVAL|HOSPITAL|STATE OWNED", business_type) ~ "Government and Public Services",
+      TRUE ~ "Other")
+  ) |>
+  filter(industry == "Other") |>
+  group_by(business_type) |>
+  summarize(total_violations = n()) |>
+  arrange(desc(total_violations))
+
+other_category_data
+```
+
+I still ended up with over 30,000 results under the "Other" section. This include business types labeled Dustry Road (the only one that appears to be under it is the City of Cameron), 
+
+However, the other industries are now more accurate.
+
+**Data takeaway**: Among the included industries, retail and domestic businesses receive the most environmental quality violations in Texas, with 12,522 recorded in total since 2010. Petroleum and chemical manufacturing comes second with 8,325 notices.
+
+Let's visualize this in a bar chart. 
+
+```{r}
+ggplot(industry_count, 
+       aes(x = reorder(industry, total_violations), y = total_violations)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(
+    title = str_wrap("Money makes the world go 'round: Retail businesses receive the most environmental violations in Texas"),
+    subtitle = str_wrap("Businesses in the retail and domestic industry received 12,519 citations since 2010, according to data from the Texas Commission on Environmental Quality. This includes gas stations and grocery stores. Petroleum and chemical manufacturers come second, totaling 8,325 citations."),
+    caption = "By Angelica Ruzanova",
+    x = "Industry",
+    y = "Total violations",
+    fill = "Industry"
+  ) +
+  theme_minimal()
+```
+
+## Allegations 
+
+I am curious what kinds of environmental allegations are most commonly cited, so I will group by violation_allegation to find out. 
+
+```{r}
+allegation_count <- citations_clean |>
+  group_by(violation_allegation) |>
+  summarize(count = n()) |>
+  arrange(desc(count))
+
+allegation_count
+```
+
+**Data Takeaway**: The most common violation allegation from the TEQC is a "failure to meet the limit for one or more permit parameter," cited 61,607 times since 1998. This refers to situations where a regulated entity does not comply with the specific limits set in their environmental permit, such as the amount of pollutants emitted, water quality standards, or other environmental criteria, according to the [TEQC website](https://www.tceq.texas.gov/permitting). 
+
+Other commonly cited allegations are failures to report violations within the designated monitoring period, noncompliance with waste water limits, and issues with dry-cleaning facility registration renewals. 

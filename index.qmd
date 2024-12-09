@@ -1,0 +1,44 @@
+---
+title: "Summary"
+---
+
+## Reporting with Data: Environmental Violations in the Lone Star State
+
+This analysis draws on two datasets from the Texas Commission on Environmental Quality (TCEQ), accessed through the Texas Open Data Portal and linked via investigation numbers unique to each cited entity. 
+
+The [**Notices of Violation (NOVs) Dataset**](https://data.texas.gov/dataset/Texas-Commission-on-Environmental-Quality-Notices-/mwzi-gyw7/about_data) includes records of notices handed out to entities that haven’t complied with environmental regulations since 2010. The [**Violation Citations Dataset**](https://data.texas.gov/dataset/Texas-Commission-on-Environmental-Quality-Violatio/gyd4-wuys/about_data) offers detailed insights into individual violations, including their categories, allegations, resolutions, and other relevant details, with records going as far bar as 1998.
+
+### Refineries and chemical plants dominate 
+
+The Port Arthur Refinery leads ** since 2010 with 943 notices, according to TCEQ data. Allegations against the nation’s second-largest petroleum and crude oil refinery include delayed hazardous spill cleanups, open waste containers, and failure to prevent unauthorized atmospheric emissions.
+
+In Harris County, home to the highest number of violations overall (28,179), the Chevron Phillips chemical plant leads with 545 citations, followed by ExxonMobil's Baytown refinery with 389 notices since 2010. 
+
+<iframe title="Who's polluting Texas? Harris County fumes brown" aria-label="Map" id="datawrapper-chart-GLOGc" src="https://datawrapper.dwcdn.net/GLOGc/7/" scrolling="no" frameborder="0" style="width: 0; min-width: 100% !ismportant; border: none;" height="773" data-external="1"></iframe><script type="text/javascript">!function(){"use strict";window.addEventListener("message",(function(a){if(void 0!==a.data["datawrapper-height"]){var e=document.querySelectorAll("iframe");for(var t in a.data["datawrapper-height"])for(var r=0;r<e.length;r++)if(e[r].contentWindow===a.source){var i=a.data["datawrapper-height"][t]+"px";e[r].style.height=i}}}))}();
+</script>
+
+In Greater Austin, trends fluctuate. Environmental violations in regional counties peaked in 2019 with 770 notices, according to TCEQ data, paralleling the statewide surge. Possible factors contributing to the increase include the amendment of the Texas Water Code outlined in the agency's [Biennial Report](https://www.tceq.texas.gov/publications/sfr/tceq-biennial-report/biennial-report-to-the-87th-legislature-fy2019-fy2020/chapter-3-legislation-from-the-86th-session?utm_source=chatgpt.com) and intensified enforcement efforts which resulted in more than $2.7 million allocated for [Supplemental Environmental Projects](https://www.tceq.texas.gov/publications/sfr/tceq-biennial-report/biennial-report-to-the-87th-legislature-fy2019-fy2020/agency-activities-enforcement?utm_source=chatgpt.com). 
+
+Violations declined during the COVID-19 pandemic but spiked again in 2023 with 595 notices within the region.
+
+![](figures/county-line.png)
+
+### Other data takeaways
+
+- Retail businesses, including gas stations, lead Texas industries in environmental violations with 12,522 notices since 2010, according to TCEQ data. Petroleum and chemical manufacturing follows closely, accounting for 8,325 violations during the same period.
+- The City of Pflugerville leads Travis County in environmental violations with 54 notices, including a 2019 citation for failing to remove cryptosporidium, a fecal parasite that poses public health risks, from its water supply.
+- Walnut Creek's wastewater treatment plant follows with 28 notices, including citations for deteriorating infrastructure and visible foam discharges in November 2022, according to TCEQ records.
+- A Chevron Phillips chemical plant in Harris County, Texas - home to the state’s highest number of environmental violations - leads the number of environmental citations in the county. Its Cedar Bayou facility has received 545 notices, including violations for failing to detect a rail car leak and prevent unauthorized emissions.
+- An ExxonMobil refinery in Baytown comes second with 389 violation citations, example of which include exceeding the hydrogen sulfide and nitrogen oxide emissions within the daily cap.
+- Although recommendations vary, corrective actions for companies such as Motiva and Marathon Petroleum include adjusting operational procedures for the equipment and training personnel. Such resolutions typically follow. 
+- Midland County has the highest number of Category A violations in Texas, which require automatic enforcement actions.
+- Category B violations, which require corrective action by a deadline, are the most common, with 154,745 total notices since 1998 - nearly double those in Categories A and C combined. 
+- The most frequent citation is a "failure to meet the limit for one or more permit parameters," recorded 61,607 times since 1998. Other violations include failing to report breaches during monitoring periods and noncompliance with wastewater discharge limits.
+
+### Caveats and methodology
+
+These datasets were cross-referenced to gain a comprehensive idea of the different descriptions and attributions in the violation records. Although the Violation Citations dataset spans back to 1998, it shows incompleteness of earlier years. The NOV dataset begins in 2010 but contains an inconsiderable amount of invalid years (see line 109 in Cleaning). 
+
+Additionally, the data only includes violations formally documented by TCEQ and does not capture potential unreported incidents. 
+
+A country with good, fair, and reliable institutions is country that thrives (this isn't filler words, just honest thoughts). Therefore, a regular analysis of data which sheds light on public health and environmental concerns in local communities is not only necessary, but empowering, holding high-stakes institutions accountable for their actions.  

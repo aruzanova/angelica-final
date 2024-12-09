@@ -1,0 +1,126 @@
+---
+title: "Cleaning"
+---
+
+The goal of this notebook is to prepare data from the Texas Commission on Environmental Quality - Notices Of Violation (NOV) and Violation Citations - for further analysis. Cleaned data means each data source will have clean variable names, correct data types, and clean categorical values.
+
+## Set up
+
+The first step is to load the library packages that will assist with certain tasks in this project.
+
+```{r}
+#| label: setup
+#| message: false
+
+library(tidyverse)
+library(janitor)
+library(DT)
+```
+
+## Importing the data
+
+The data I downloaded comes from the [Texas Open Data Portal](https://data.texas.gov/dataset/Texas-Commission-on-Environmental-Quality-Notices-/mwzi-gyw7/about_data). It is already in my files' data_raw folder, so the next steps would be to import it, assign it to an R object, and glimpse at it.
+
+To lowercase the columns into code-friendly format, I will use the clean_names() function.
+
+```{r}
+citations_raw <- read_csv("data_raw/20241112.csv") |> clean_names()
+```
+
+It is a good idea to glimpse at the data to ensure the columns are in proper format.
+
+```{r}
+citations_raw |> glimpse()
+```
+
+Right off the bat, I notice that I have to change the date formats and the investigation number, notice of violation ID, and violation tracking number columns to be character values since they are categorical variables.  
+
+## Fixing the formats
+
+For the date to not show up as a numerical value, I will use one of the lubridate functions, mutate(), to modify it. I referred to [lubridate documentation](https://rawgit.com/rstudio/cheatsheets/main/lubridate.pdf) for the right format. 
+
+I am arranging the dates in a descending order to see the most recent data. 
+
+```{r}
+citations_clean <- citations_raw |>
+  mutate(
+    investigation_approved_date = mdy(investigation_approved_date),
+    violation_status_date = mdy(violation_status_date),
+    compliance_due_date = mdy(compliance_due_date),
+    investigation_number = as.character(investigation_number),
+    notice_of_violation_id = as.character(notice_of_violation_id),
+    violation_tracking_number = as.character(violation_tracking_number)
+  ) |>
+  arrange(desc(investigation_approved_date))
+
+citations_clean
+```
+
+I will quickly look at the summary of the 240,000 rows I will be working with. 
+
+```{r}
+summary(citations_clean)
+```
+
+The most recent data is from November 8, 2024. The oldest data goes back to December 9, 1998.
+
+To track specific investigation numbers, I will put this data in a look-up table format. 
+
+```{r}
+#citations_clean |> datatable()
+```
+
+## A different set - import and clean
+
+This data comes from the same organization, but it includes the name and specific geographic location of the regulated entity. Tied together, the two sets provide a more detailed picture. 
+
+```{r}
+nov_raw <- read_csv("data_raw/20241028.csv") |> clean_names()
+
+nov_raw |> glimpse()
+```
+
+I will adjust some of the columns to be character values like previously. I will also look at the summary here to see the date range. 
+
+```{r}
+nov_clean <- nov_raw |>
+  mutate(investigation_approved_date = mdy(investigation_approved_date),
+         nov_date = mdy(nov_date),
+         investigation_number = as.character(investigation_number),
+         notice_of_violation_id = as.character(notice_of_violation_id)) |>
+  filter(year(nov_date) != 3000) |>
+  arrange(investigation_approved_date)
+
+summary(nov_clean)
+```
+
+The latest date shows up as the year 3000. I will check whether this is a repeating error by filtering the original data for years after 2024. 
+
+```{r}
+nov_date_check <- nov_raw |>
+  mutate(
+    nov_date = mdy(nov_date),
+    extracted_year = year(nov_date)) |>
+  filter(extracted_year > 2024)
+
+nov_date_check
+```
+
+There are four dates labeled with the year 3000, which needs to be followed up with a TCEQ information officer. 
+
+To see the actual latest date, I will edit the earlier to exclude the mismatched year (at least for now). The clean data set ranges from November 16, 2010 all the way to July 19, 2024. 
+As with the citations data set, I want to have this one in a searchable table format for reference.
+
+```{r}
+#nov_clean |> datatable()
+```
+
+## Exporting the data
+
+Last but not least, I will export the cleaned data in a native R format.
+
+```{r}
+citations_clean |> write_rds("data_processed/01-citations.rds")
+
+nov_clean |> write_rds("data_processed/01-nov.rds")
+```
